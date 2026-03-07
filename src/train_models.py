@@ -1,179 +1,10 @@
-# import pandas as pd
-# import numpy as np
-# import matplotlib.pyplot as plt
-# import seaborn as sns
-# import os
-# import joblib
-
-# from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
-# from sklearn.preprocessing import OneHotEncoder, StandardScaler, MinMaxScaler
-# from sklearn.compose import ColumnTransformer
-# from sklearn.pipeline import Pipeline
-# from sklearn.decomposition import PCA
-
-# from sklearn.linear_model import LogisticRegression
-# from sklearn.neighbors import KNeighborsClassifier
-# from sklearn.tree import DecisionTreeClassifier
-# from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-# from sklearn.svm import SVC
-# from sklearn.svm import LinearSVC
-
-# from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-# from imblearn.over_sampling import SMOTE
-
-# # -----------------------
-# # Create folders
-# # -----------------------
-# os.makedirs("outputs", exist_ok=True)
-# os.makedirs("models", exist_ok=True)
-
-# # -----------------------
-# # Load dataset
-# # -----------------------
-# train = pd.read_csv("data/UNSW_NB15_training-set.csv")
-# test = pd.read_csv("data/UNSW_NB15_testing-set.csv")
-# df = pd.concat([train, test])
-
-# X = df.drop("label", axis=1)
-# y = df["label"]
-
-# # -----------------------
-# # Pie Chart BEFORE SMOTE
-# # -----------------------
-# plt.figure()
-# y.value_counts().plot.pie(autopct="%1.1f%%")
-# plt.title("Before SMOTE")
-# plt.savefig("outputs/before_smote.png")
-# plt.close()
-
-# # -----------------------
-# # Preprocessing
-# # -----------------------
-# categorical_cols = X.select_dtypes(include=['object']).columns
-# numeric_cols = X.select_dtypes(exclude=['object']).columns
-
-# preprocessor = ColumnTransformer([
-#     ("num", StandardScaler(), numeric_cols),
-#     ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_cols)
-# ])
-
-# X_processed = preprocessor.fit_transform(X)
-
-# # -----------------------
-# # Train-Test Split
-# # -----------------------
-# X_train, X_test, y_train, y_test = train_test_split(
-#     X_processed, y, test_size=0.2, random_state=42
-# )
-
-# # -----------------------
-# # SMOTE (Train only)
-# # -----------------------
-# smote = SMOTE(random_state=42)
-# X_train, y_train = smote.fit_resample(X_train, y_train)
-
-# # -----------------------
-# # Pie Chart AFTER SMOTE
-# # -----------------------
-# plt.figure()
-# pd.Series(y_train).value_counts().plot.pie(autopct="%1.1f%%")
-# plt.title("After SMOTE")
-# plt.savefig("outputs/after_smote.png")
-# plt.close()
-
-# # -----------------------
-# # Correlation Heatmap
-# # -----------------------
-# numeric_df = df.select_dtypes(include=['number'])
-# plt.figure(figsize=(12,8))
-# sns.heatmap(numeric_df.corr(), cmap="coolwarm")
-# plt.title("Correlation Heatmap")
-# plt.savefig("outputs/correlation_heatmap.png")
-# plt.close()
-
-# # -----------------------
-# # Feature Importance
-# # -----------------------
-# rf = RandomForestClassifier(n_estimators=100)
-# rf.fit(X_train, y_train)
-
-# importance = rf.feature_importances_ * 100
-
-# plt.figure(figsize=(10,5))
-# plt.bar(range(len(importance)), importance)
-# plt.title("Feature Importance (%) - Random Forest")
-# plt.savefig("outputs/feature_importance.png")
-# plt.close()
-
-# # -----------------------
-# # PCA
-# # -----------------------
-# pca = PCA(n_components=20)
-# X_train_pca = pca.fit_transform(X_train)
-# X_test_pca = pca.transform(X_test)
-
-# # -----------------------
-# # 6 Classifiers
-# # -----------------------
-# models = {
-#     "Logistic": LogisticRegression(max_iter=2000),
-#     "KNN": KNeighborsClassifier(),
-#     "DecisionTree": DecisionTreeClassifier(),
-#     "RandomForest": RandomForestClassifier(),
-#     "SVM": LinearSVC(max_iter=5000),
-#     "GradientBoost": GradientBoostingClassifier()
-# }
-
-# results = []
-
-# for name, model in models.items():
-
-#     cv_scores = cross_val_score(model, X_train_pca, y_train, cv=10)
-
-#     model.fit(X_train_pca, y_train)
-#     y_pred = model.predict(X_test_pca)
-
-#     acc = accuracy_score(y_test, y_pred)
-#     prec = precision_score(y_test, y_pred, average="weighted")
-#     rec = recall_score(y_test, y_pred, average="weighted")
-#     f1 = f1_score(y_test, y_pred, average="weighted")
-
-#     print(f"\n{name}")
-#     print("10-Fold CV Mean Accuracy:", cv_scores.mean())
-#     print("Test Accuracy:", acc)
-#     print("Precision:", prec)
-#     print("Recall:", rec)
-#     print("F1:", f1)
-
-#     results.append([name, cv_scores.mean(), acc, prec, rec, f1])
-
-# # Save comparison
-# results_df = pd.DataFrame(results,
-#                           columns=["Model", "CV Accuracy", "Test Accuracy", "Precision", "Recall", "F1"])
-# results_df.to_csv("outputs/model_comparison.csv", index=False)
-
-# # -----------------------
-# # GridSearchCV
-# # -----------------------
-# param_grid = {
-#     "n_estimators": [100, 200],
-#     "max_depth": [5, 10]
-# }
-
-# grid = GridSearchCV(RandomForestClassifier(), param_grid, cv=5)
-# grid.fit(X_train_pca, y_train)
-
-# print("\nBest Parameters from GridSearch:", grid.best_params_)
-
-# best_model = grid.best_estimator_
-
-# joblib.dump(best_model, "models/final_model.pkl")
-
-# print("Final tuned model saved.")
-
-import pandas as pd
 import os
+import pandas as pd
 import joblib
+import matplotlib.pyplot as plt
+
+# Improve CPU parallel usage
+os.environ["OMP_NUM_THREADS"] = "8"
 
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.linear_model import LogisticRegression
@@ -239,9 +70,6 @@ X_train, X_test, scaler = scale_features(X_train, X_test)
 # -----------------------
 importance = feature_importance(X_train, y_train)
 
-# Plot feature importance
-import matplotlib.pyplot as plt
-
 plt.figure(figsize=(10,5))
 plt.bar(range(len(importance)), importance)
 plt.title("Feature Importance (%)")
@@ -260,12 +88,12 @@ X_test_pca = pca.transform(X_test)
 models = {
 
     "Logistic": (
-        LogisticRegression(max_iter=2000),
+        LogisticRegression(max_iter=2000, n_jobs=-1),
         {"C":[0.1,1,10]}
     ),
 
     "KNN": (
-        KNeighborsClassifier(),
+        KNeighborsClassifier(algorithm="auto"),
         {"n_neighbors":[3,5,7]}
     ),
 
@@ -275,9 +103,11 @@ models = {
     ),
 
     "RandomForest": (
-        RandomForestClassifier(),
-        {"n_estimators":[100,200],
-         "max_depth":[5,10]}
+        RandomForestClassifier(n_jobs=-1),
+        {
+            "n_estimators":[100,200],
+            "max_depth":[5,10]
+        }
     ),
 
     "SVM": (
@@ -285,12 +115,20 @@ models = {
         {"C":[0.1,1,10]}
     ),
 
+    "GradientBoost": (
+        GradientBoostingClassifier(),
+        {
+            "n_estimators":[100,200],
+            "learning_rate":[0.05,0.1]
+        }
+    ),
+
     "NaiveBayes": (
-    GaussianNB(),
-    {
-        "var_smoothing": [1e-12, 1e-11, 1e-10, 1e-9, 1e-8]
-    }
-)
+        GaussianNB(),
+        {
+            "var_smoothing":[1e-12,1e-10,1e-8]
+        }
+    )
 }
 
 results = []
@@ -308,11 +146,23 @@ for name,(model,param_grid) in models.items():
 
     print(f"\n{name} Model")
 
-    # 10 Fold Cross Validation
-    cv_scores = cross_val_score(model, X_train_pca, y_train, cv=10)
+    # 10 Fold Cross Validation (parallel)
+    cv_scores = cross_val_score(
+        model,
+        X_train_pca,
+        y_train,
+        cv=10,
+        n_jobs=-1
+    )
 
     # GridSearchCV Hyperparameter tuning
-    grid = GridSearchCV(model, param_grid, cv=5)
+    grid = GridSearchCV(
+        model,
+        param_grid,
+        cv=5,
+        n_jobs=-1
+    )
+
     grid.fit(X_train_pca, y_train)
 
     tuned_model = grid.best_estimator_
@@ -334,7 +184,6 @@ for name,(model,param_grid) in models.items():
 
     # -----------------------
     # Best Model Selection
-    # Priority: F1 → Recall → Accuracy
     # -----------------------
     if (
         f1 > best_f1 or
@@ -346,6 +195,16 @@ for name,(model,param_grid) in models.items():
         best_accuracy = acc
         best_model = tuned_model
         best_model_name = name
+
+# -----------------------
+# Save comparison
+# -----------------------
+results_df = pd.DataFrame(
+    results,
+    columns=["Model","CV Accuracy","Accuracy","Precision","Recall","F1"]
+)
+
+results_df.to_csv("outputs/model_comparison.csv",index=False)
 
 # -----------------------
 # Save Best Model
