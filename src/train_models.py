@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # Improve CPU parallel usage
 os.environ["OMP_NUM_THREADS"] = "8"
 
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import cross_val_score, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -27,34 +27,38 @@ os.makedirs("models", exist_ok=True)
 # -----------------------
 # Load Data
 # -----------------------
-train, test = load_data(
+train_df, test_df = load_data(
     "data/UNSW_NB15_training-set.csv",
     "data/UNSW_NB15_testing-set.csv"
 )
 
-df = pd.concat([train, test])
+# Separate features and labels
+X_train_raw = train_df.drop("label", axis=1)
+y_train = train_df["label"]
 
-X, y, preprocessor = preprocess_features(df)
-
-# -----------------------
-# Pie chart BEFORE SMOTE
-# -----------------------
-plot_class_distribution(y, "outputs/before_smote.png")
+X_test_raw = test_df.drop("label", axis=1)
+y_test = test_df["label"]
 
 # -----------------------
-# Correlation Heatmap
+# Class distribution BEFORE SMOTE
 # -----------------------
-correlation_heatmap(df)
+plot_class_distribution(y_train, "outputs/before_smote.png")
 
 # -----------------------
-# Train Test Split
+# Correlation Heatmap (training data only)
 # -----------------------
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+correlation_heatmap(train_df)
+
+# -----------------------
+# Preprocessing
+# -----------------------
+X_train, X_test, preprocessor = preprocess_features(
+    X_train_raw,
+    X_test_raw
 )
 
 # -----------------------
-# SMOTE
+# SMOTE (train only)
 # -----------------------
 X_train, y_train = apply_smote(X_train, y_train)
 
@@ -79,8 +83,11 @@ plt.close()
 # -----------------------
 # PCA
 # -----------------------
-X_train_pca, pca = apply_pca(X_train, 20)
-X_test_pca = pca.transform(X_test)
+X_train_pca, X_test_pca, pca = apply_pca(
+    X_train,
+    X_test,
+    n_components=20
+)
 
 # -----------------------
 # Models + Parameter Grids
@@ -93,7 +100,7 @@ models = {
     ),
 
     "KNN": (
-        KNeighborsClassifier(algorithm="auto"),
+        KNeighborsClassifier(),
         {"n_neighbors":[3,5,7]}
     ),
 
@@ -146,7 +153,7 @@ for name,(model,param_grid) in models.items():
 
     print(f"\n{name} Model")
 
-    # 10 Fold Cross Validation (parallel)
+    # 10 Fold Cross Validation
     cv_scores = cross_val_score(
         model,
         X_train_pca,
@@ -155,7 +162,7 @@ for name,(model,param_grid) in models.items():
         n_jobs=-1
     )
 
-    # GridSearchCV Hyperparameter tuning
+    # Hyperparameter tuning
     grid = GridSearchCV(
         model,
         param_grid,
@@ -170,7 +177,7 @@ for name,(model,param_grid) in models.items():
     # Prediction
     y_pred = tuned_model.predict(X_test_pca)
 
-    # Evaluation metrics
+    # Evaluation
     acc, prec, rec, f1 = evaluate_model(y_test, y_pred)
 
     print("10 Fold CV Accuracy:", cv_scores.mean())
@@ -182,9 +189,7 @@ for name,(model,param_grid) in models.items():
 
     results.append([name,cv_scores.mean(),acc,prec,rec,f1])
 
-    # -----------------------
     # Best Model Selection
-    # -----------------------
     if (
         f1 > best_f1 or
         (f1 == best_f1 and rec > best_recall) or
@@ -195,6 +200,7 @@ for name,(model,param_grid) in models.items():
         best_accuracy = acc
         best_model = tuned_model
         best_model_name = name
+
 
 # -----------------------
 # Save comparison
