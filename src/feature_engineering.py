@@ -1,13 +1,18 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.decomposition import PCA
 
 
-def feature_importance(X, y):
+# -----------------------------
+# Feature Importance
+# -----------------------------
+def feature_importance(X_train, y_train):
 
-    model = RandomForestClassifier()
-    model.fit(X, y)
+    model = RandomForestClassifier(random_state=42)
+
+    model.fit(X_train, y_train)
 
     importance = model.feature_importances_
 
@@ -16,16 +21,20 @@ def feature_importance(X, y):
     return importance_percent
 
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-
+# -----------------------------
+# Correlation Heatmap
+# -----------------------------
 def correlation_heatmap(df):
 
     numeric_df = df.select_dtypes(include=['number'])
 
     plt.figure(figsize=(12,8))
 
-    sns.heatmap(numeric_df.corr(), cmap="coolwarm")
+    sns.heatmap(
+        numeric_df.corr(),
+        cmap="coolwarm",
+        annot=False
+    )
 
     plt.title("Correlation Heatmap")
 
@@ -34,10 +43,17 @@ def correlation_heatmap(df):
     plt.close()
 
 
-def apply_pca(X, n_components=20):
+# -----------------------------
+# PCA Dimensionality Reduction
+# -----------------------------
+def apply_pca(X_train, X_test, n_components=20):
 
     pca = PCA(n_components=n_components)
 
-    X_pca = pca.fit_transform(X)
+    # Fit on train only
+    X_train_pca = pca.fit_transform(X_train)
 
-    return X_pca, pca
+    # Transform test
+    X_test_pca = pca.transform(X_test)
+
+    return X_train_pca, X_test_pca, pca
