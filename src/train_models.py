@@ -242,9 +242,12 @@ plt.savefig("outputs/model_comparison.png")
 plt.close()
 
 # -----------------------
-# Save Best Model using Joblib
+# Save Best Model,preprocessor,scaler, pca using Joblib
 # -----------------------
 joblib.dump(best_model, "models/best_model.pkl")
+joblib.dump(preprocessor,"models/preprocessor.pkl")
+joblib.dump(scaler,"models/scaler.pkl")
+joblib.dump(pca,"models/pca.pkl")
 
 print(f"\nBest model selected: {best_model_name}")
 print("Model saved successfully as models/best_model.pkl")
