@@ -31,7 +31,6 @@ def preprocess_features(X_train, X_test):
             ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_cols)
         ]
     )
-
     # Fit ONLY on training data
     X_train_processed = preprocessor.fit_transform(X_train)
 
