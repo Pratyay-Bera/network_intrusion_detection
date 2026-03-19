@@ -1,54 +1,70 @@
+"""
+app.py
+
+This file creates a Streamlit dashboard to demonstrate the
+Network Intrusion Detection system trained on the UNSW-NB15 dataset.
+
+Users can upload network traffic CSV files and the trained model
+will classify each record as Normal or Attack.
+"""
+
 import streamlit as st
 import pandas as pd
 import joblib
-from PIL import Image
 import matplotlib.pyplot as plt
-
-from data_preprocessing import preprocess_features, scale_features
-from feature_engineering import apply_pca
+from PIL import Image
+import os
 
 # -----------------------------
 # Page Configuration
 # -----------------------------
 st.set_page_config(
-    page_title="🔐 Network Intrusion Detection Dashboard",
+    page_title="Network Intrusion Detection Dashboard",
     layout="wide"
 )
 
 st.title("🔐 Network Intrusion Detection System")
-st.caption("Model Used: SVM_RBF | Dataset: UNSW-NB15")
+st.caption("Dataset: UNSW-NB15")
 
 st.markdown("""
-### 🔎 Overview
+This dashboard demonstrates a **Machine Learning based Intrusion Detection System**.
 
-This dashboard detects malicious network traffic using a trained **Machine Learning model**.
+The system analyzes **network traffic features** and classifies them into:
 
-The model analyzes network flow features and classifies traffic as:
+🟢 **Normal Traffic**  
+🔴 **Attack Traffic**
 
-- 🟢 **Normal Traffic**
-- 🔴 **Attack Traffic**
-
-📌 **How to use this dashboard**
-
-1. Upload a **network traffic CSV file**
-2. The model will classify each record
-3. View prediction summaries and dataset insights
+### How to use
+1. Upload a network traffic **CSV file**
+2. The model processes the data
+3. Predictions and summary statistics are displayed
 """)
+
+# -----------------------------
+# Load Model + Pipeline Objects
+# -----------------------------
+@st.cache_resource
+def load_models():
+
+    model = joblib.load("models/best_model.pkl")
+    preprocessor = joblib.load("models/preprocessor.pkl")
+    scaler = joblib.load("models/scaler.pkl")
+    pca = joblib.load("models/pca.pkl")
+
+    return model, preprocessor, scaler, pca
+
+
+model, preprocessor, scaler, pca = load_models()
 
 # -----------------------------
 # Sidebar Upload
 # -----------------------------
-st.sidebar.header("📤 Upload Network Traffic Data")
+st.sidebar.header("Upload Network Traffic Data")
 
 uploaded_file = st.sidebar.file_uploader(
-    "Upload CSV File",
+    "Upload CSV file",
     type=["csv"]
 )
-
-# -----------------------------
-# Load Model
-# -----------------------------
-model = joblib.load("models/best_model.pkl")
 
 # -----------------------------
 # Prediction Section
@@ -57,140 +73,144 @@ if uploaded_file is not None:
 
     df = pd.read_csv(uploaded_file)
 
-    st.subheader("📄 Uploaded Data Preview")
+    st.subheader("Uploaded Data Preview")
     st.dataframe(df.head())
 
-    # X = preprocess_features_for_prediction(df)
-    # X = apply_pca_for_prediction(X)
-
-   # If label exists, separate it
+    # Remove label if present
     if "label" in df.columns:
         X = df.drop("label", axis=1)
-        y = df["label"]
     else:
-        X = df
+        X = df.copy()
+
+    
 
     try:
 
         # -----------------------------
-        # Preprocessing
+        # Apply Saved Preprocessing
         # -----------------------------
-        X_train, X_test, preprocessor = preprocess_features(X, X)
+        X_processed = preprocessor.transform(X)
 
-        # -----------------------------
         # Scaling
-        # -----------------------------
-        X_train, X_test, scaler = scale_features(X_train, X_test)
+        X_scaled = scaler.transform(X_processed)
 
-        # -----------------------------
         # PCA
-        # -----------------------------
-        X_train_pca, X_test_pca, pca = apply_pca(
-            X_train,
-            X_test,
-            n_components=20
-        )
+        X_pca = pca.transform(X_scaled)
 
         # -----------------------------
         # Prediction
         # -----------------------------
-        predictions = model.predict(X_test_pca)
+        predictions = model.predict(X_pca)
 
         results = df.copy()
         results["Prediction"] = predictions
-        results["Prediction"] = results["Prediction"].map(
-            {0: 0, 1: 1}
-        )
 
-        st.subheader("🧠 Prediction Results")
+        results["Prediction"] = results["Prediction"].map({
+            0: "Normal",
+            1: "Attack"
+        })
+
+        st.subheader("Prediction Results")
         st.dataframe(results)
 
-        st.caption("* 0 = Normal, 1 = Attack")
-
-        # Summary
-        attack_count = (results["Prediction"] == 1).sum()
-        normal_count = (results["Prediction"] == 0).sum()
+        # -----------------------------
+        # Summary Metrics
+        # -----------------------------
+        attack_count = (results["Prediction"] == "Attack").sum()
+        normal_count = (results["Prediction"] == "Normal").sum()
 
         col1, col2 = st.columns(2)
 
         col1.metric("Normal Traffic", normal_count)
         col2.metric("Attack Traffic", attack_count)
 
+        # -----------------------------
+        # Prediction Pie Chart
+        # -----------------------------
+        st.subheader("Traffic Distribution")
+
+        fig, ax = plt.subplots()
+
+        ax.pie(
+            [normal_count, attack_count],
+            labels=["Normal", "Attack"],
+            autopct="%1.1f%%",
+            colors=["green", "red"]
+        )
+
+        st.pyplot(fig)
+
     except Exception as e:
         st.error(f"Prediction Error: {e}")
 
 
 # -----------------------------
-# Dataset Analysis
+# Dataset Analysis Section
 # -----------------------------
 st.markdown("---")
-st.header("📊 Dataset & Model Analysis")
+st.header("Dataset Analysis")
 
 col1, col2 = st.columns(2)
 
-with col1:
-    st.subheader("Class Distribution Before SMOTE")
-    st.image("outputs/before_smote.png")
+if os.path.exists("outputs/before_smote.png"):
+    with col1:
+        st.subheader("Before SMOTE")
+        st.image("outputs/before_smote.png")
 
-with col2:
-    st.subheader("Class Distribution After SMOTE")
-    st.image("outputs/after_smote.png")
+if os.path.exists("outputs/after_smote.png"):
+    with col2:
+        st.subheader("After SMOTE")
+        st.image("outputs/after_smote.png")
 
-st.subheader("Correlation Heatmap")
-st.image("outputs/correlation_heatmap.png")
+if os.path.exists("outputs/correlation_heatmap.png"):
+    st.subheader("Feature Correlation Heatmap")
+    st.image("outputs/correlation_heatmap.png")
 
-st.subheader("Feature Importance")
-st.image("outputs/feature_importance.png")
+if os.path.exists("outputs/feature_importance.png"):
+    st.subheader("Feature Importance")
+    st.image("outputs/feature_importance.png")
 
 # -----------------------------
-# Model Evaluation
+# Model Comparison
 # -----------------------------
-st.subheader("📊 Model Performance Comparison")
+st.markdown("---")
+st.header("Model Performance Comparison")
 
 st.markdown("""
-The chart below compares different machine learning models used for
-network intrusion detection.
+Different machine learning models were evaluated using:
 
-Metric used:
+- Accuracy
+- Precision
+- Recall
+- F1 Score
 
-- **F1 Score** — balances precision and recall
-- Higher values indicate better performance.
-
-📌 This comparison helps select the best model for deployment.
+The best performing model was selected for deployment.
 """)
 
-comparison_img = Image.open("outputs/model_comparison.png")
-
-st.image(
-    comparison_img,
-    caption="Model Comparison (F1 Score)",
-    width="stretch"
-)
+if os.path.exists("outputs/model_comparison.png"):
+    st.image(
+        "outputs/model_comparison.png",
+        caption="Model Performance Comparison"
+    )
 
 # -----------------------------
-# Best Model Selected
+# Best Model Information
 # -----------------------------
-st.subheader("🏆 Best Model Selected")
+st.markdown("---")
+st.header("Best Model")
 
 st.markdown("""
-Based on the evaluation of multiple machine learning models using the **F1 Score**,  
-the model with the best performance on the dataset is:
+The best performing model selected for intrusion detection is:
 
-### 🧠 **Support Vector Machine (RBF Kernel)**
+### Support Vector Machine (RBF Kernel)
 
-This model achieved the **highest F1 Score**, meaning it provides the best balance between:
+Reasons for selecting SVM:
 
-- **Precision** – correctly identifying attacks
-- **Recall** – detecting as many attacks as possible
+• Works well with **high dimensional datasets**  
+• Handles **non-linear decision boundaries**  
+• Provides strong performance in **network intrusion detection**
 
-📌 **Why SVM with RBF Kernel works well:**
-- Handles **non-linear decision boundaries**
-- Performs well on **high-dimensional datasets**
-- Effective for **network intrusion detection patterns**
-
-Therefore, the deployed model used in this dashboard is:
-
-### 🚀 **SVM_RBF**
+The trained SVM model is used to classify incoming network traffic.
 """)
 
-st.success("✔ Active Detection Model: SVM_RBF")
+st.success("Active Detection Model: SVM (RBF Kernel)")
